@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.util.List;
 
 public class GffParser {
+  Aggregator aggregator = new Aggregator();
+
   public GffParser(String filename) {
     File inputFile = new File(filename);
     if (!inputFile.exists()) {
@@ -26,9 +28,10 @@ public class GffParser {
       reader.iterator().stream()
           .map(Gff3Feature::getBaseData)
           .filter(f -> !f.getAttribute("pseudo").equals(List.of("true")))
-          .forEach(BasicFeature::new);
+          .forEach(aggregator::add);
 
-      System.out.println("Finished loading " + BasicFeature.count() + " features");
+      System.out.println("Finished loading " + aggregator.featureMap.size() + " features");
+      reader.close();
     } catch (IOException e) {
       e.printStackTrace();
     }
