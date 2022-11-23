@@ -9,6 +9,7 @@ public class Main {
     parser.aggregator.findGenesAndExons();
     try {
       parser.aggregator.writeTestOutput();
+      parser.aggregator.writeQcOutput();
     } catch (IOException e) {
       e.printStackTrace();
     }

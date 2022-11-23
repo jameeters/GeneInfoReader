@@ -2,7 +2,6 @@ package org.pankratzlab;
 
 import htsjdk.tribble.gff.Gff3BaseData;
 
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
@@ -43,12 +42,28 @@ public class Aggregator {
     String fileName = "/tmp/geneinfo";
     FileWriter writer = new FileWriter(fileName);
 
-    for (BasicFeature gene : genes){
+    for (BasicFeature gene : genes) {
       writer.write(gene.id + "  " + gene.start + "  " + gene.end + "\n");
       for (BasicFeature exon : gene.getDescendantExons()) {
         writer.write("   |" + exon.id + "  " + exon.start + "  " + exon.end + "\n");
       }
     }
     writer.close();
+  }
+
+  void writeQcOutput() throws IOException {
+    String fileName = "/tmp/geneinfoQC";
+    FileWriter writer = new FileWriter(fileName);
+
+    int[] chrGeneCounts = new int[25];
+
+    for (BasicFeature gene : genes) {
+      chrGeneCounts[gene.getChr()]++;
+    }
+    writer.write("chr\tgeneCount\n");
+    for (int i = 0; i < chrGeneCounts.length; i++){
+      writer.write(i + "\t" + chrGeneCounts[i] + "\n");
+    }
+      writer.close();
   }
 }
