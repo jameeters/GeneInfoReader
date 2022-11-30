@@ -7,7 +7,6 @@ import htsjdk.tribble.readers.LineIterator;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 public class GffParser {
   Aggregator aggregator = new Aggregator();
@@ -26,8 +25,6 @@ public class GffParser {
     try {
       final AbstractFeatureReader<Gff3Feature, LineIterator> reader = AbstractFeatureReader.getFeatureReader(filename, gff3Codec, false);
       reader.iterator().stream()
-          .map(Gff3Feature::getBaseData)
-          .filter(f -> !f.getAttribute("pseudo").equals(List.of("true")))
           .forEach(aggregator::add);
 
       System.out.println("Finished loading " + aggregator.featureMap.size() + " features");

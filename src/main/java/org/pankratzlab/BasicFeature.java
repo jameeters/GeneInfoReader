@@ -1,14 +1,43 @@
 package org.pankratzlab;
 
 import htsjdk.tribble.gff.Gff3BaseData;
+import htsjdk.tribble.gff.Gff3Feature;
 import org.pankratzlab.common.filesys.GeneData;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class BasicFeature {
+
+  private static final Map<String, Integer> contigToChrMapping = Map.ofEntries(
+      new AbstractMap.SimpleEntry<>("NC_000001.11", 1),
+      new AbstractMap.SimpleEntry<>("NC_000002.12", 2),
+      new AbstractMap.SimpleEntry<>("NC_000003.12", 3),
+      new AbstractMap.SimpleEntry<>("NC_000004.12", 4),
+      new AbstractMap.SimpleEntry<>("NC_000005.10", 5),
+      new AbstractMap.SimpleEntry<>("NC_000006.12", 6),
+      new AbstractMap.SimpleEntry<>("NC_000007.14", 7),
+      new AbstractMap.SimpleEntry<>("NC_000008.11", 8),
+      new AbstractMap.SimpleEntry<>("NC_000009.12", 9),
+      new AbstractMap.SimpleEntry<>("NC_000010.11", 10),
+      new AbstractMap.SimpleEntry<>("NC_000011.10", 11),
+      new AbstractMap.SimpleEntry<>("NC_000012.12", 12),
+      new AbstractMap.SimpleEntry<>("NC_000013.11", 13),
+      new AbstractMap.SimpleEntry<>("NC_000014.9", 14),
+      new AbstractMap.SimpleEntry<>("NC_000015.10", 15),
+      new AbstractMap.SimpleEntry<>("NC_000016.10", 16),
+      new AbstractMap.SimpleEntry<>("NC_000017.11", 17),
+      new AbstractMap.SimpleEntry<>("NC_000018.10", 18),
+      new AbstractMap.SimpleEntry<>("NC_000019.10", 19),
+      new AbstractMap.SimpleEntry<>("NC_000020.11", 20),
+      new AbstractMap.SimpleEntry<>("NC_000021.9", 21),
+      new AbstractMap.SimpleEntry<>("NC_000022.11", 22),
+      new AbstractMap.SimpleEntry<>("NC_000023.11", 23),
+      new AbstractMap.SimpleEntry<>("NC_000024.10", 24));
 
   final String id, type;
   BasicFeature parent;
@@ -22,6 +51,9 @@ public class BasicFeature {
   final String contig;
   final byte strand;
 
+  final boolean onMainContig;
+  final String xRefGeneId;
+
   public BasicFeature(Gff3BaseData baseData) {
     this.type = baseData.getType();
     this.id = baseData.getId();
@@ -29,6 +61,7 @@ public class BasicFeature {
     this.end = baseData.getEnd();
     this.name = baseData.getName();
     this.contig = baseData.getContig();
+
     byte tempStrand = -1;
     switch (baseData.getStrand().encodeAsChar()) {
       case '+':
@@ -42,6 +75,22 @@ public class BasicFeature {
         tempStrand = GeneData.BOTH_STRANDS;
     }
     this.strand = tempStrand;
+    this.onMainContig = contigToChrMapping.containsKey(this.contig);
+    this.xRefGeneId = findXRefGeneId(baseData);
+  }
+
+  public BasicFeature(Gff3Feature feature) {
+    this(feature.getBaseData());
+  }
+
+  private String findXRefGeneId(Gff3BaseData baseData) {
+    List<String> provisionalDbXRef = baseData.getAttribute("Dbxref");
+    for (String ref : provisionalDbXRef) {
+      if (ref.startsWith("GeneID")) {
+        return ref;
+      }
+    }
+    return Aggregator.BAD_OR_MISSING;
   }
 
   public Set<BasicFeature> getDescendantExons() {
@@ -67,60 +116,8 @@ public class BasicFeature {
   }
 
   public byte getChr() {
-    switch (contig) {
-      case "NC_000001.11":
-        return 1;
-      case "NC_000002.12":
-        return 2;
-      case "NC_000003.12":
-        return 3;
-      case "NC_000004.12":
-        return 4;
-      case "NC_000005.10":
-        return 5;
-      case "NC_000006.12":
-        return 6;
-      case "NC_000007.14":
-        return 7;
-      case "NC_000008.11":
-        return 8;
-      case "NC_000009.12":
-        return 9;
-      case "NC_000010.11":
-        return 10;
-      case "NC_000011.10":
-        return 11;
-      case "NC_000012.12":
-        return 12;
-      case "NC_000013.11":
-        return 13;
-      case "NC_000014.9":
-        return 14;
-      case "NC_000015.10":
-        return 15;
-      case "NC_000016.10":
-        return 16;
-      case "NC_000017.11":
-        return 17;
-      case "NC_000018.10":
-        return 18;
-      case "NC_000019.10":
-        return 19;
-      case "NC_000020.11":
-        return 20;
-      case "NC_000021.9":
-        return 21;
-      case "NC_000022.11":
-        return 22;
-      case "NC_000023.11":
-        return 23;
-      case "NC_000024.10":
-        return 24;
-      default:
-        return 0;
-
+    return contigToChrMapping.getOrDefault(this.contig, 0).byteValue();
     }
-  }
 
   public int[] getBoundariesAsArray() {
     return new int[] {start, end};
