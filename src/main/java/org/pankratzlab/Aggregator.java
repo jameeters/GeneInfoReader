@@ -106,7 +106,7 @@ public class Aggregator {
     FileWriter geneCountsWriter = new FileWriter(chrGeneCountsFile);
     FileWriter seqIdCountsWriter = new FileWriter(seqIdCountsFile);
 
-    int[] chrGeneCounts = new int[25];
+    int[] chrGeneCounts = new int[27];
     Map<String, Integer> seqIdCounts = new TreeMap<>();
     Map<String, Integer> seqIdTochrMapping = new TreeMap<>();
 

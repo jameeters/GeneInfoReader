@@ -37,7 +37,9 @@ public class BasicFeature {
       new AbstractMap.SimpleEntry<>("NC_000021.9", 21),
       new AbstractMap.SimpleEntry<>("NC_000022.11", 22),
       new AbstractMap.SimpleEntry<>("NC_000023.11", 23),
-      new AbstractMap.SimpleEntry<>("NC_000024.10", 24));
+      new AbstractMap.SimpleEntry<>("NC_000024.10", 24),
+      new AbstractMap.SimpleEntry<>("NC_012920.1", 26)
+  );
 
   final String id, type;
   BasicFeature parent;
@@ -71,7 +73,6 @@ public class BasicFeature {
         tempStrand = GeneData.MINUS_STRAND;
         break;
       case '.':
-        // todo: is this right?
         tempStrand = GeneData.BOTH_STRANDS;
     }
     this.strand = tempStrand;
