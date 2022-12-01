@@ -38,8 +38,7 @@ public class BasicFeature {
       new AbstractMap.SimpleEntry<>("NC_000022.11", 22),
       new AbstractMap.SimpleEntry<>("NC_000023.11", 23),
       new AbstractMap.SimpleEntry<>("NC_000024.10", 24),
-      new AbstractMap.SimpleEntry<>("NC_012920.1", 26)
-  );
+      new AbstractMap.SimpleEntry<>("NC_012920.1", 26));
 
   final String id, type;
   BasicFeature parent;
@@ -55,6 +54,9 @@ public class BasicFeature {
 
   final boolean onMainContig;
   final String xRefGeneId;
+
+  private int[][] descendantExonBoundaries;
+  private GeneData geneData;
 
   public BasicFeature(Gff3BaseData baseData) {
     this.type = baseData.getType();
@@ -84,7 +86,7 @@ public class BasicFeature {
     this(feature.getBaseData());
   }
 
-  private String findXRefGeneId(Gff3BaseData baseData) {
+  private static String findXRefGeneId(Gff3BaseData baseData) {
     List<String> provisionalDbXRef = baseData.getAttribute("Dbxref");
     for (String ref : provisionalDbXRef) {
       if (ref.startsWith("GeneID")) {
@@ -103,11 +105,11 @@ public class BasicFeature {
       exons.addAll(child.getDescendantExons());
     }
 
-    if (this.type.equals("exon") && exons.size() > 0) {
+    if (this.isExon() && exons.size() > 0) {
       System.out.println("hey this exon has descendant exons, isn't that weird?!");
     }
 
-    if (this.type.equals("exon")) {
+    if (this.isExon()) {
       exons.add(this);
     }
 
@@ -118,36 +120,44 @@ public class BasicFeature {
 
   public byte getChr() {
     return contigToChrMapping.getOrDefault(this.contig, 0).byteValue();
-    }
+  }
 
   public int[] getBoundariesAsArray() {
     return new int[] {start, end};
   }
 
   public int[][] getDescendantExonBoundariesAsArray() {
-    //todo: memoize
-    this.getDescendantExons();
-    int[][] bounds = new int[descendantExons.size()][];
-    List<BasicFeature> exonsList = new ArrayList<>(descendantExons);
-    for (int i = 0; i < exonsList.size(); i++) {
-      bounds[i] = exonsList.get(i).getBoundariesAsArray();
+    if (descendantExonBoundaries == null) {
+      this.getDescendantExons();
+      descendantExonBoundaries = new int[descendantExons.size()][];
+      List<BasicFeature> exonsList = new ArrayList<>(descendantExons);
+      for (int i = 0; i < exonsList.size(); i++) {
+        descendantExonBoundaries[i] = exonsList.get(i).getBoundariesAsArray();
+      }
     }
-    return bounds;
+    return descendantExonBoundaries;
   }
 
   public GeneData toGeneData() {
-    //todo memoize
-    if (!this.type.equals("gene")) {
-      throw new IllegalStateException("GeneData should only be created onn genes");
+    if (geneData == null) {
+      if (!this.isGene()) {
+        throw new IllegalStateException("GeneData should only be created on genes");
+      }
+      // todo: ncbi numbers
+      String[] ncbiAssessionNums = new String[0];
+      //todo: positionFinalized, multiLoc, collapsedIsoFormGene still need to be done correctly
+      geneData = new GeneData(name, ncbiAssessionNums, this.getChr(), true, strand, start, end,
+                              this.getDescendantExonBoundariesAsArray(), (byte) 0, false);
     }
-
-    String[] ncbiAssessionNums = new String[0];
-
-    //todo: positionFinalized, multiLoc, collapsedIsoFormGene still need to be done correctly
-    GeneData geneData = new GeneData(name, ncbiAssessionNums, this.getChr(), true, strand, start,
-                                     end, this.getDescendantExonBoundariesAsArray(), (byte) 0,
-                                     false);
     return geneData;
+  }
+
+  public boolean isGene(){
+    return this.type.equals("gene");
+  }
+
+  public boolean isExon() {
+    return this.type.equals("exon");
   }
 
 }

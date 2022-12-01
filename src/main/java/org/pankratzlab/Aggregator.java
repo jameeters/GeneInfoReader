@@ -21,7 +21,7 @@ public class Aggregator {
   final Set<String> duplicateIds = new HashSet<>();
 
   final static String BAD_OR_MISSING = "BAD_OR_MISSING";
-  Map<String, Set<BasicFeature>> genesByXRefGeneId = new TreeMap<>();
+  Map<String, GeneGrouping> geneGroupingsByXRefGeneId = new TreeMap<>();
 
   public Aggregator() {
     //no op
@@ -54,7 +54,7 @@ public class Aggregator {
 
   void findGenesAndExons() {
     for (BasicFeature feat : featureMap.values()) {
-      if (feat.type.equals("gene")) {
+      if (feat.isGene()) {
         this.genes.add(feat);
         feat.getDescendantExons();
       }
@@ -63,10 +63,18 @@ public class Aggregator {
 
   public void computeXRefMap() {
     for (BasicFeature gene : genes) {
-      genesByXRefGeneId.computeIfAbsent(gene.xRefGeneId, (String xRefId) -> genes.parallelStream().filter(
-          g -> g.xRefGeneId.equals(xRefId)).collect(Collectors.toSet()));
-      if(genesByXRefGeneId.size()%2000 == 0){
-        System.out.println(genesByXRefGeneId.size() + " entries computed");
+      geneGroupingsByXRefGeneId.computeIfAbsent(gene.xRefGeneId,
+                                                (String xRefId) -> new GeneGrouping(xRefId,
+                                                                                    genes.parallelStream()
+                                                                                         .filter(
+                                                                                             g -> g.xRefGeneId.equals(
+                                                                                                 xRefId))
+                                                                                         .collect(
+                                                                                             Collectors.toSet()))
+
+      );
+      if (geneGroupingsByXRefGeneId.size() % 2000 == 0) {
+        System.out.println(geneGroupingsByXRefGeneId.size() + " entries computed");
       }
     }
 
@@ -91,9 +99,10 @@ public class Aggregator {
     String duplicateIdsFile = "/tmp/duplicateIds.tsv";
     String genesContigsFile = "/tmp/genesContigs.tsv";
     String geneIdMappingFile = "/tmp/geneIdMapping.tsv";
+    String geneGroupingsFile = "/tmp/geneGroupings.tsv";
 
     List<String> fileNames = List.of(chrGeneCountsFile, seqIdCountsFile, duplicateIdsFile,
-                                     genesContigsFile, geneIdMappingFile);
+                                     genesContigsFile, geneIdMappingFile, geneGroupingsFile);
 
     for (String fileName : fileNames) {
       File f = new File(fileName);
@@ -163,5 +172,12 @@ public class Aggregator {
       geneIdMappingWriter.write(gene.id + "\t" + gene.xRefGeneId + "\t" + gene.onMainContig + "\n");
     }
     geneIdMappingWriter.close();
+
+    FileWriter geneGroupingsWriter = new FileWriter(geneGroupingsFile);
+    geneGroupingsWriter.write("xRefGeneId\ttotalGenes\tmainContigGenes\n");
+    for (GeneGrouping gg : this.geneGroupingsByXRefGeneId.values()){
+      geneGroupingsWriter.write(gg.geneId + "\t" + gg.countTotalGenes() + "\t" + gg.countMainContigGenes() + "\n");
+    }
+    geneGroupingsWriter.close();
   }
 }
