@@ -2,6 +2,7 @@ package org.pankratzlab;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.function.Consumer;
 
 import htsjdk.tribble.AbstractFeatureReader;
 import htsjdk.tribble.gff.Gff3Codec;
@@ -9,9 +10,8 @@ import htsjdk.tribble.gff.Gff3Feature;
 import htsjdk.tribble.readers.LineIterator;
 
 public class GffParser {
-  Aggregator aggregator = new Aggregator();
 
-  public GffParser(String filename) {
+  public GffParser(String filename, Consumer<Gff3Feature> featureConsumer) {
     File inputFile = new File(filename);
     if (!inputFile.exists()) {
       throw new IllegalArgumentException("Input file does not exist");
@@ -26,9 +26,8 @@ public class GffParser {
       final AbstractFeatureReader<Gff3Feature, LineIterator> reader = AbstractFeatureReader.getFeatureReader(filename,
                                                                                                              gff3Codec,
                                                                                                              false);
-      reader.iterator().stream().forEach(aggregator::add);
+      reader.iterator().stream().forEach(featureConsumer);
 
-      System.out.println("Finished loading " + aggregator.featureMap.size() + " features");
       reader.close();
     } catch (IOException e) {
       e.printStackTrace();
