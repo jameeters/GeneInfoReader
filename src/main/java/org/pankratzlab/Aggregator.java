@@ -1,8 +1,5 @@
 package org.pankratzlab;
 
-import htsjdk.tribble.gff.Gff3BaseData;
-import htsjdk.tribble.gff.Gff3Feature;
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -15,6 +12,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import htsjdk.tribble.gff.Gff3BaseData;
+import htsjdk.tribble.gff.Gff3Feature;
+
 public class Aggregator {
   final Map<String, BasicFeature> featureMap = new HashMap<>();
   final Set<BasicFeature> genes = new HashSet<>();
@@ -24,7 +24,7 @@ public class Aggregator {
   Map<String, GeneGrouping> geneGroupingsByXRefGeneId = new TreeMap<>();
 
   public Aggregator() {
-    //no op
+    // no op
   }
 
   private void add(BasicFeature feat, Gff3BaseData baseData) {
@@ -66,11 +66,8 @@ public class Aggregator {
       geneGroupingsByXRefGeneId.computeIfAbsent(gene.xRefGeneId,
                                                 (String xRefId) -> new GeneGrouping(xRefId,
                                                                                     genes.parallelStream()
-                                                                                         .filter(
-                                                                                             g -> g.xRefGeneId.equals(
-                                                                                                 xRefId))
-                                                                                         .collect(
-                                                                                             Collectors.toSet()))
+                                                                                         .filter(g -> g.xRefGeneId.equals(xRefId))
+                                                                                         .collect(Collectors.toSet()))
 
       );
       if (geneGroupingsByXRefGeneId.size() % 2000 == 0) {
@@ -82,12 +79,14 @@ public class Aggregator {
 
   void writeTestOutput() throws IOException {
     String fileName = "/tmp/geneinfo";
+    Files.deleteIfExists(new File(fileName).toPath());
     FileWriter writer = new FileWriter(fileName);
-
-    for (BasicFeature gene : genes) {
-      writer.write(gene.id + "  " + gene.start + "  " + gene.end + "\n");
-      for (BasicFeature exon : gene.getDescendantExons()) {
-        writer.write("   |" + exon.id + "  " + exon.start + "  " + exon.end + "\n");
+    for (GeneGrouping gg : geneGroupingsByXRefGeneId.values()) {
+      for (BasicFeature gene : gg.getMainContigGenes()) {
+        writer.write(gene.name + "  " + gene.start + "  " + gene.end + "\n");
+        for (BasicFeature exon : gene.getDescendantExons()) {
+          writer.write("   |" + exon.id + "  " + exon.start + "  " + exon.end + "\n");
+        }
       }
     }
     writer.close();
@@ -161,8 +160,8 @@ public class Aggregator {
     FileWriter geneContigWriter = new FileWriter(genesContigsFile);
     geneContigWriter.write("id\tcontig\tchrMapping\n");
     for (BasicFeature gene : genes) {
-      geneContigWriter.write(
-          gene.id + "\t" + gene.contig + "\t" + seqIdTochrMapping.get(gene.contig) + "\n");
+      geneContigWriter.write(gene.id + "\t" + gene.contig + "\t"
+                             + seqIdTochrMapping.get(gene.contig) + "\n");
     }
     geneContigWriter.close();
 
@@ -175,8 +174,9 @@ public class Aggregator {
 
     FileWriter geneGroupingsWriter = new FileWriter(geneGroupingsFile);
     geneGroupingsWriter.write("xRefGeneId\ttotalGenes\tmainContigGenes\n");
-    for (GeneGrouping gg : this.geneGroupingsByXRefGeneId.values()){
-      geneGroupingsWriter.write(gg.geneId + "\t" + gg.countTotalGenes() + "\t" + gg.countMainContigGenes() + "\n");
+    for (GeneGrouping gg : this.geneGroupingsByXRefGeneId.values()) {
+      geneGroupingsWriter.write(gg.geneId + "\t" + gg.countTotalGenes() + "\t"
+                                + gg.countMainContigGenes() + "\n");
     }
     geneGroupingsWriter.close();
   }
