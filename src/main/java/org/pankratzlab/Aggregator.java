@@ -115,6 +115,34 @@ public class Aggregator {
     geneTrack.serialize(geneTrackFile);
   }
 
+  public void writeGenesXlnFile() throws IOException {
+    System.out.println("Writing genes.xln file...");
+    // todo: GeneID reference_name reference_chr reference_start reference_stop
+    // ------xref----name
+
+    String genesXlnFileName = "genes38.xln";
+    File genesXlnFile = dir.resolve(genesXlnFileName).toFile();
+
+    if (genesXlnFile.isFile()) {
+      System.out.println("File " + genesXlnFile
+                         + " already exists. It will be deleted and recreated.");
+      boolean deleteSuccess = genesXlnFile.delete();
+      if (!deleteSuccess) {
+        throw new IllegalStateException("Delete was unsuccessful, cannot continue");
+      }
+    }
+
+    String header = String.join("\t", "id", "name", "chr", "start", "stop");
+
+    try (FileWriter writer = new FileWriter(genesXlnFile)) {
+      writer.write(header + "\n");
+      for (BasicFeature gene : genes) {
+        writer.write(gene.toGenesXlnLine() + "\n");
+      }
+    }
+
+  }
+
   void writeQcOutput() throws IOException {
     System.out.println("Writing QC files...");
     File genesAndExonsFile = dir.resolve("geneinfo").toAbsolutePath().toFile();

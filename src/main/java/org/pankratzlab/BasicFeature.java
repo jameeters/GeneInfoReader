@@ -1,9 +1,5 @@
 package org.pankratzlab;
 
-import htsjdk.tribble.gff.Gff3BaseData;
-import htsjdk.tribble.gff.Gff3Feature;
-import org.pankratzlab.common.filesys.GeneData;
-
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -11,8 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class BasicFeature {
+import org.pankratzlab.common.filesys.GeneData;
 
+import htsjdk.tribble.gff.Gff3BaseData;
+import htsjdk.tribble.gff.Gff3Feature;
+
+public class BasicFeature {
+  // @format:off
   private static final Map<String, Integer> contigToChrMapping = Map.ofEntries(
       new AbstractMap.SimpleEntry<>("NC_000001.11", 1),
       new AbstractMap.SimpleEntry<>("NC_000002.12", 2),
@@ -39,6 +40,7 @@ public class BasicFeature {
       new AbstractMap.SimpleEntry<>("NC_000023.11", 23),
       new AbstractMap.SimpleEntry<>("NC_000024.10", 24),
       new AbstractMap.SimpleEntry<>("NC_012920.1", 26));
+  // @format:on
 
   final String id, type;
   BasicFeature parent;
@@ -141,18 +143,28 @@ public class BasicFeature {
   public GeneData toGeneData() {
     if (geneData == null) {
       if (!this.isGene()) {
-        throw new IllegalStateException("GeneData should only be created on genes");
+        throw new UnsupportedOperationException("GeneData should only be created on genes");
       }
       // todo: ncbi numbers
       String[] ncbiAssessionNums = new String[0];
-      //todo: positionFinalized, multiLoc, collapsedIsoFormGene still need to be done correctly
+      // todo: positionFinalized, multiLoc, collapsedIsoFormGene still need to be done correctly
       geneData = new GeneData(name, ncbiAssessionNums, this.getChr(), true, strand, start, end,
                               this.getDescendantExonBoundariesAsArray(), (byte) 0, false);
     }
     return geneData;
   }
 
-  public boolean isGene(){
+  public String toGenesXlnLine() {
+    if (!this.isGene()) {
+      throw new UnsupportedOperationException("Only genes should be included in genes.xln");
+    }
+    String chr = String.valueOf(this.getChr());
+    String xRefGeneIdNumber = this.xRefGeneId.split(":")[1];
+    return String.join("\t", xRefGeneIdNumber, name, String.valueOf(this.getChr()),
+                       String.valueOf(start), String.valueOf(end));
+  }
+
+  public boolean isGene() {
     return this.type.equals("gene");
   }
 

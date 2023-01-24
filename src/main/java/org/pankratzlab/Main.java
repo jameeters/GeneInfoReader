@@ -44,6 +44,12 @@ public class Main {
 
     aggregator.writeSerializedGeneTrack();
 
+    try {
+      aggregator.writeGenesXlnFile();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
     if (qc) {
       try {
         aggregator.writeQcOutput();
