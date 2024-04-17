@@ -33,7 +33,7 @@
                 htsjdk
             </artifactId>
             <version>
-                3.0.3-SNAPSHOT
+                3.0.4
             </version>
         </dependency>
         <dependency>
