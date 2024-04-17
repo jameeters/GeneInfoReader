@@ -1,10 +1,12 @@
 package org.pankratzlab;
 
 import java.io.IOException;
+import java.nio.file.Path;
 
 public class Main {
   public static void main(String[] args) {
-    String gffFile = args[0];
+    Path gffFile = Path.of(args[0]);
+    Path outputDir = Path.of("/tmp");
     boolean qc = true;
     boolean bedExons = false;
     boolean bedIntrons = false;
@@ -16,11 +18,13 @@ public class Main {
           bedExons = true;
         } else if(a.equals("-bedIntrons")) {
           bedIntrons = true;
+        } else if (a.startsWith("-out=")) {
+          outputDir = Path.of(a.replace("-out=", ""));
         }
       }
     }
 
-    Aggregator aggregator = new Aggregator(gffFile);
+    Aggregator aggregator = new Aggregator(gffFile, outputDir);
 
     aggregator.findGenesAndExons();
     if (bedIntrons) {

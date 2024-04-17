@@ -5,6 +5,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,14 +26,15 @@ public class Aggregator {
 
   final Map<String, BasicFeature> featureMap = new HashMap<>();
   final Set<BasicFeature> genes = new HashSet<>();
-  final Set<String> duplicateIds = new HashSet<>();
   private boolean genesFound = false;
-
+  final Set<String> duplicateIds = new HashSet<>();
+  final Path outputDir;
   final static String BAD_OR_MISSING = "BAD_OR_MISSING";
   Map<String, GeneGrouping> geneGroupingsByXRefGeneId = new TreeMap<>();
 
-  public Aggregator(String gffFilename) {
-    this.parser = new GffParser(gffFilename, this::add);
+  public Aggregator(Path gffFilename, Path outputDir) {
+    this.outputDir = outputDir;
+    this.parser = new GffParser(gffFilename.toString(), this::add);
     System.out.println("Finished loading " + featureMap.size() + " features");
   }
 
@@ -103,8 +105,8 @@ public class Aggregator {
   }
 
   public void writeSerializedGeneTrack() {
-    String geneSetFile = "/tmp/geneset.ser";
-    String geneTrackFile = "/tmp/GeneTrack.ser";
+    Path geneSetFile = outputDir.resolve("geneset.ser");
+    Path geneTrackFile = outputDir.resolve("GeneTrack.ser");
 
     System.out.println("Creating GeneTrack...");
     List<GeneData> geneDatas = geneGroupingsByXRefGeneId.values().stream()
@@ -114,15 +116,15 @@ public class Aggregator {
                                                         .collect(Collectors.toList());
 
     GeneSet geneSet = new GeneSet(geneDatas);
-    geneSet.serialize(geneSetFile);
+    geneSet.serialize(geneSetFile.toString());
 
-    GeneTrack geneTrack = new GeneTrack(geneSetFile);
-    geneTrack.serialize(geneTrackFile);
+    GeneTrack geneTrack = new GeneTrack(geneSetFile.toString());
+    geneTrack.serialize(geneTrackFile.toString());
   }
 
   public void writeBedFile() {
-    String bedFile = "/tmp/exons_introns.bed";
-    PrintWriter writer = org.pankratzlab.common.Files.getAppropriateWriter(bedFile);
+    Path bedFile = outputDir.resolve("exons_introns.bed");
+    PrintWriter writer = org.pankratzlab.common.Files.getAppropriateWriter(bedFile.toString());
     geneGroupingsByXRefGeneId.values().stream()
         .map(GeneGrouping::getMainContigGenes)
         .flatMap(
@@ -133,27 +135,27 @@ public class Aggregator {
 
   void writeQcOutput() throws IOException {
     System.out.println("Writing QC files...");
-    String genesAndExonsFile = "/tmp/geneinfo";
-    String chrGeneCountsFile = "/tmp/chrGeneCounts.tsv";
-    String seqIdCountsFile = "/tmp/seqIdCounts.tsv";
-    String duplicateIdsFile = "/tmp/duplicateIds.tsv";
-    String genesContigsFile = "/tmp/genesContigs.tsv";
-    String geneIdMappingFile = "/tmp/geneIdMapping.tsv";
-    String geneGroupingsFile = "/tmp/geneGroupings.tsv";
+    Path genesAndExonsFile = outputDir.resolve("geneinfo");
+    Path chrGeneCountsFile = outputDir.resolve("chrGeneCounts.tsv");
+    Path seqIdCountsFile = outputDir.resolve("seqIdCounts.tsv");
+    Path duplicateIdsFile = outputDir.resolve("duplicateIds.tsv");
+    Path genesContigsFile = outputDir.resolve("genesContigs.tsv");
+    Path geneIdMappingFile = outputDir.resolve("geneIdMapping.tsv");
+    Path geneGroupingsFile = outputDir.resolve("geneGroupings.tsv");
 
-    List<String> fileNames = List.of(genesAndExonsFile, chrGeneCountsFile, seqIdCountsFile,
+    List<Path> fileNames = List.of(genesAndExonsFile, chrGeneCountsFile, seqIdCountsFile,
                                      duplicateIdsFile, genesContigsFile, geneIdMappingFile,
                                      geneGroupingsFile);
 
-    for (String fileName : fileNames) {
-      File f = new File(fileName);
+    for (Path fileName : fileNames) {
+      File f = fileName.toFile();
       boolean result = Files.deleteIfExists(f.toPath());
       if (result) {
         System.out.println("deleted " + fileName);
       }
     }
 
-    FileWriter genesAndExonsWriter = new FileWriter(genesAndExonsFile);
+    FileWriter genesAndExonsWriter = new FileWriter(genesAndExonsFile.toFile());
     for (GeneGrouping gg : geneGroupingsByXRefGeneId.values()) {
       for (BasicFeature gene : gg.getMainContigGenes()) {
         genesAndExonsWriter.write(gene.name + "  " + gene.start + "  " + gene.end + "\n");
@@ -164,8 +166,8 @@ public class Aggregator {
     }
     genesAndExonsWriter.close();
 
-    FileWriter geneCountsWriter = new FileWriter(chrGeneCountsFile);
-    FileWriter seqIdCountsWriter = new FileWriter(seqIdCountsFile);
+    FileWriter geneCountsWriter = new FileWriter(chrGeneCountsFile.toFile());
+    FileWriter seqIdCountsWriter = new FileWriter(seqIdCountsFile.toFile());
 
     int[] chrGeneCounts = new int[27];
     Map<String, Integer> seqIdCounts = new TreeMap<>();
@@ -196,7 +198,7 @@ public class Aggregator {
     }
     seqIdCountsWriter.close();
 
-    FileWriter duplicateIdsWriter = new FileWriter(duplicateIdsFile);
+    FileWriter duplicateIdsWriter = new FileWriter(duplicateIdsFile.toFile());
     duplicateIdsWriter.write("id\tinGenes\tinExons\n");
 
     Set<String> geneIds = genes.stream().map(gene -> gene.id).collect(Collectors.toSet());
@@ -210,7 +212,7 @@ public class Aggregator {
     }
     duplicateIdsWriter.close();
 
-    FileWriter geneContigWriter = new FileWriter(genesContigsFile);
+    FileWriter geneContigWriter = new FileWriter(genesContigsFile.toFile());
     geneContigWriter.write("id\tcontig\tchrMapping\n");
     for (BasicFeature gene : genes) {
       geneContigWriter.write(gene.id + "\t" + gene.contig + "\t"
@@ -218,14 +220,14 @@ public class Aggregator {
     }
     geneContigWriter.close();
 
-    FileWriter geneIdMappingWriter = new FileWriter(geneIdMappingFile);
+    FileWriter geneIdMappingWriter = new FileWriter(geneIdMappingFile.toFile());
     geneIdMappingWriter.write("id\txRefGeneId\tonMainContig\n");
     for (BasicFeature gene : genes) {
       geneIdMappingWriter.write(gene.id + "\t" + gene.xRefGeneId + "\t" + gene.onMainContig + "\n");
     }
     geneIdMappingWriter.close();
 
-    FileWriter geneGroupingsWriter = new FileWriter(geneGroupingsFile);
+    FileWriter geneGroupingsWriter = new FileWriter(geneGroupingsFile.toFile());
     geneGroupingsWriter.write("xRefGeneId\ttotalGenes\tmainContigGenes\n");
     for (GeneGrouping gg : this.geneGroupingsByXRefGeneId.values()) {
       geneGroupingsWriter.write(gg.geneId + "\t" + gg.countTotalGenes() + "\t"
