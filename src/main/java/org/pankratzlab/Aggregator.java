@@ -3,6 +3,7 @@ package org.pankratzlab;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,6 +26,7 @@ public class Aggregator {
   final Map<String, BasicFeature> featureMap = new HashMap<>();
   final Set<BasicFeature> genes = new HashSet<>();
   final Set<String> duplicateIds = new HashSet<>();
+  private boolean genesFound = false;
 
   final static String BAD_OR_MISSING = "BAD_OR_MISSING";
   Map<String, GeneGrouping> geneGroupingsByXRefGeneId = new TreeMap<>();
@@ -58,14 +60,30 @@ public class Aggregator {
     this.add(feat, superFeature.getBaseData());
   }
 
-  void findGenesAndExons() {
-    System.out.println("Finding genes and exons...");
+  private void findGenes() {
+    System.out.println("Finding genes...");
     for (BasicFeature feat : featureMap.values()) {
       if (feat.isGene()) {
         this.genes.add(feat);
-        feat.getDescendantExons();
       }
     }
+    this.genesFound = true;
+  }
+
+  void findGenesAndExons() {
+    if (!genesFound) {
+      this.findGenes();
+    }
+    System.out.println("Finding exons...");
+    this.genes.forEach(BasicFeature::getDescendantExons);
+  }
+
+  void findGenesAndIntrons() {
+    if (!genesFound) {
+      this.findGenes();
+    }
+    System.out.println("Finding introns...");
+    this.genes.forEach(BasicFeature::getDescendantIntrons);
   }
 
   public void computeXRefMap() {
@@ -100,6 +118,17 @@ public class Aggregator {
 
     GeneTrack geneTrack = new GeneTrack(geneSetFile);
     geneTrack.serialize(geneTrackFile);
+  }
+
+  public void writeBedFile() {
+    String bedFile = "/tmp/exons_introns.bed";
+    PrintWriter writer = org.pankratzlab.common.Files.getAppropriateWriter(bedFile);
+    geneGroupingsByXRefGeneId.values().stream()
+        .map(GeneGrouping::getMainContigGenes)
+        .flatMap(
+            (Set<BasicFeature> s) -> s.stream().map(BasicFeature::toBedLines).map(String::valueOf)
+        )
+        .forEach(writer::println);
   }
 
   void writeQcOutput() throws IOException {

@@ -6,18 +6,33 @@ public class Main {
   public static void main(String[] args) {
     String gffFile = args[0];
     boolean qc = true;
-    if (args.length == 2) {
-      if (args[1].equals("-noqc")) {
-        qc = false;
+    boolean bedExons = false;
+    boolean bedIntrons = false;
+    if (args.length >= 2) {
+      for(String a : args) {
+        if (a.equals("-noqc")) {
+          qc = false;
+        } else if (a.equals("-bedExons")) {
+          bedExons = true;
+        } else if(a.equals("-bedIntrons")) {
+          bedIntrons = true;
+        }
       }
     }
 
     Aggregator aggregator = new Aggregator(gffFile);
 
     aggregator.findGenesAndExons();
+    if (bedIntrons) {
+      aggregator.findGenesAndIntrons();
+    }
     aggregator.computeXRefMap();
 
-    aggregator.writeSerializedGeneTrack();
+    if (bedExons || bedIntrons) {
+      aggregator.writeBedFile();
+    } else {
+      aggregator.writeSerializedGeneTrack();
+    }
 
     if (qc) {
       try {

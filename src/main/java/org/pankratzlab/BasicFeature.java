@@ -6,12 +6,13 @@ import org.pankratzlab.common.filesys.GeneData;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class BasicFeature {
+public class BasicFeature implements Comparable<BasicFeature> {
 
   private static final Map<String, Integer> contigToChrMapping = Map.ofEntries(
       new AbstractMap.SimpleEntry<>("NC_000001.11", 1),
@@ -46,6 +47,9 @@ public class BasicFeature {
 
   boolean exonsFound = false;
   Set<BasicFeature> descendantExons = new HashSet<>();
+
+  boolean intronsFound = false;
+  Set<BasicFeature> descendantIntrons = new HashSet<>();
 
   final int start, end;
   final String name;
@@ -118,6 +122,28 @@ public class BasicFeature {
     return exons;
   }
 
+  public Set<BasicFeature> getDescendantIntrons() {
+    if (this.intronsFound) {
+      return this.descendantIntrons;
+    }
+    Set<BasicFeature> introns = new HashSet<>();
+    for (BasicFeature child : this.children) {
+      introns.addAll(child.getDescendantIntrons());
+    }
+
+    if (this.isIntron() && introns.size() > 0) {
+      System.out.println("hey this intron has descendant introns, isn't that weird?!");
+    }
+
+    if (this.isIntron()) {
+      introns.add(this);
+    }
+
+    this.descendantIntrons = introns;
+    this.intronsFound = true;
+    return introns;
+  }
+
   public byte getChr() {
     return contigToChrMapping.getOrDefault(this.contig, 0).byteValue();
   }
@@ -160,4 +186,45 @@ public class BasicFeature {
     return this.type.equals("exon");
   }
 
+  public boolean isIntron() {
+    return this.type.equals("intron");
+  }
+
+  public int compareTo (BasicFeature other) {
+    if ((other.parent != null && this.parent != null) && other.parent != this.parent) {
+      return this.parent.compareTo(other.parent);
+    }
+    if (other.getChr() != this.getChr()) {
+      return this.getChr() - other.getChr();
+    }
+    if (other.start != this.start) {
+      return this.start - other.start;
+    }
+    return this.end - other.end;
+  }
+
+  public List<String> toBedLines() {
+    if (!this.isGene()) {
+      throw new RuntimeException("I'm not a gene and I don't want to be turned into bed lines!");
+    }
+    List<BasicFeature> children = new ArrayList<>();
+    if (exonsFound) {
+      children.addAll(this.descendantExons);
+    }
+    if (intronsFound) {
+      children.addAll(this.descendantIntrons);
+    }
+    children.sort(BasicFeature::compareTo);
+    List<String> lines =  new ArrayList<>();
+    for (int i = 0; i < children.size(); i++) {
+      BasicFeature child = children.get(i);
+      String name = String.join("_", this.name, child.type.substring(0,1), String.valueOf(i));
+      lines.add(String.join("\t",
+                            String.valueOf(child.getChr()),
+                            String.valueOf(child.start),
+                            String.valueOf(child.end),
+                            name));
+    }
+    return lines;
+  }
 }
