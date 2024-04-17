@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class BasicFeature implements Comparable<BasicFeature> {
 
@@ -191,16 +192,21 @@ public class BasicFeature implements Comparable<BasicFeature> {
   }
 
   public int compareTo (BasicFeature other) {
-    if ((other.parent != null && this.parent != null) && other.parent != this.parent) {
-      return this.parent.compareTo(other.parent);
-    }
     if (other.getChr() != this.getChr()) {
-      return this.getChr() - other.getChr();
+      return Integer.compare(this.getChr(), other.getChr());
     }
     if (other.start != this.start) {
-      return this.start - other.start;
+      return Integer.compare(this.start, other.start);
     }
-    return this.end - other.end;
+    return Integer.compare(this.end, other.end);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj.getClass() != BasicFeature.class) {
+      return false;
+    }
+    return this.compareTo((BasicFeature) obj) == 0;
   }
 
   public List<String> toBedLines() {
@@ -209,11 +215,12 @@ public class BasicFeature implements Comparable<BasicFeature> {
     }
     List<BasicFeature> children = new ArrayList<>();
     if (exonsFound) {
-      children.addAll(this.descendantExons);
+      children.addAll(this.descendantExons.stream().distinct().collect(Collectors.toList()));
     }
     if (intronsFound) {
-      children.addAll(this.descendantIntrons);
+      children.addAll(this.descendantIntrons.stream().distinct().collect(Collectors.toList()));
     }
+
     children.sort(BasicFeature::compareTo);
     List<String> lines =  new ArrayList<>();
     for (int i = 0; i < children.size(); i++) {

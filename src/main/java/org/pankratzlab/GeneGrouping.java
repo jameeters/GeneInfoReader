@@ -57,4 +57,38 @@ public class GeneGrouping {
   public int countMainContigGenes() {
     return this.mainContigGenes.size();
   }
+
+  public int getChr() {
+    if (this.hasMainContigGene()) {
+      return mainContigGenes.stream().findAny().get().getChr();
+    } else {
+      return genes.stream().findAny().get().getChr();
+    }
+  }
+
+  public int getStart() {
+    if (this.hasMainContigGene()) {
+      return mainContigGenes.stream().findAny().get().start;
+    } else {
+      return genes.stream().findAny().get().start;
+    }
+  }
+
+  public int getEnd() {
+    if (this.hasMainContigGene()) {
+      return mainContigGenes.stream().findAny().get().end;
+    } else {
+      return genes.stream().findAny().get().end;
+    }
+  }
+
+  public int compareTo (GeneGrouping other) {
+    if (other.getChr() != this.getChr()) {
+      return Integer.compare(this.getChr(), other.getChr());
+    }
+    if (other.getStart() != this.getStart()) {
+      return Integer.compare(this.getStart(), other.getStart());
+    }
+    return Integer.compare(this.getEnd(), other.getEnd());
+  }
 }

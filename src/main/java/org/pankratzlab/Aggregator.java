@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -125,12 +126,16 @@ public class Aggregator {
   public void writeBedFile() {
     Path bedFile = outputDir.resolve("exons_introns.bed");
     PrintWriter writer = org.pankratzlab.common.Files.getAppropriateWriter(bedFile.toString());
-    geneGroupingsByXRefGeneId.values().stream()
-        .map(GeneGrouping::getMainContigGenes)
-        .flatMap(
-            (Set<BasicFeature> s) -> s.stream().map(BasicFeature::toBedLines).map(String::valueOf)
-        )
-        .forEach(writer::println);
+    geneGroupingsByXRefGeneId.values().stream().sorted(GeneGrouping::compareTo)
+        .forEach((GeneGrouping geneGrouping) -> {
+          try {
+            BasicFeature mainContigGene = geneGrouping.getMainContigGenes().stream().findFirst()
+                .get();
+            mainContigGene.toBedLines().forEach(writer::println);
+          } catch (NoSuchElementException e) {
+            System.out.println("No main contig gene found for group " + geneGrouping.geneId);
+          }
+        });
   }
 
   void writeQcOutput() throws IOException {
