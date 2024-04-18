@@ -241,6 +241,9 @@ public class BasicFeature {
     if (!this.isGene()) {
       throw new RuntimeException("I'm not a gene and I don't want to be turned into bed lines!");
     }
+    if (getChr() == 26) {
+      return List.of();
+    }
     List<BasicFeature> children = new ArrayList<>();
     if (includeExons) {
       children.addAll(this.descendantExons.stream().filter(distinctByLocation()).collect(Collectors.toList()));
