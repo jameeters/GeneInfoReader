@@ -31,7 +31,7 @@ public class Main {
     Aggregator aggregator = new Aggregator(gffFile, outputDir);
 
     aggregator.findGenesAndExons();
-    if (bedIntrons) {
+    if (bedIntrons || bedAll) {
       aggregator.findGenesAndIntrons();
     }
     aggregator.computeXRefMap();

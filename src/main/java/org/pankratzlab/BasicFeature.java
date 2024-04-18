@@ -1,19 +1,21 @@
 package org.pankratzlab;
 
-import htsjdk.tribble.gff.Gff3BaseData;
-import htsjdk.tribble.gff.Gff3Feature;
-import org.pankratzlab.common.filesys.GeneData;
-
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-public class BasicFeature implements Comparable<BasicFeature> {
+import org.pankratzlab.common.filesys.GeneData;
+
+import htsjdk.tribble.gff.Gff3BaseData;
+import htsjdk.tribble.gff.Gff3Feature;
+
+public class BasicFeature {
 
   private static final Map<String, Integer> contigToChrMapping = Map.ofEntries(
       new AbstractMap.SimpleEntry<>("NC_000001.11", 1),
@@ -144,15 +146,8 @@ public class BasicFeature implements Comparable<BasicFeature> {
       this.getDescendantExons();
     }
     Set<BasicFeature> introns = new HashSet<>();
-    for (BasicFeature child : this.children) {
-      introns.addAll(child.getDescendantIntrons());
-    }
 
-    if (this.isIntron() && introns.size() > 0) {
-      System.out.println("hey this intron has descendant introns, isn't that weird?!");
-    }
-
-    List<BasicFeature> orderedExons = this.descendantExons.stream().sorted()
+    List<BasicFeature> orderedExons = this.descendantExons.stream().filter(distinctByLocation()).sorted(BasicFeature::compareLocation)
         .collect(Collectors.toList());
 
     // Introns are everything in the gene that's not an exon
@@ -168,8 +163,8 @@ public class BasicFeature implements Comparable<BasicFeature> {
         int intronEnd = exon.start - 1;
         BasicFeature intron = new BasicFeature(id, "intron", intronStart, intronEnd, id, this.contig, this.strand, this.xRefGeneId);
         introns.add(intron);
-        prevEnd = exon.end + 1;
       }
+      prevEnd = exon.end + 1;
     }
     if (this.end > prevEnd) {
       // one more intron between the last exon and the end of the gene
@@ -188,6 +183,10 @@ public class BasicFeature implements Comparable<BasicFeature> {
 
   public int[] getBoundariesAsArray() {
     return new int[] {start, end};
+  }
+
+  public String getPositionAsString() {
+    return String.join("_", String.valueOf(getChr()), String.valueOf(start), String.valueOf(end));
   }
 
   public int[][] getDescendantExonBoundariesAsArray() {
@@ -228,7 +227,7 @@ public class BasicFeature implements Comparable<BasicFeature> {
     return this.type.equals("intron");
   }
 
-  public int compareTo (BasicFeature other) {
+  public int compareLocation (BasicFeature other) {
     if (other.getChr() != this.getChr()) {
       return Integer.compare(this.getChr(), other.getChr());
     }
@@ -238,27 +237,19 @@ public class BasicFeature implements Comparable<BasicFeature> {
     return Integer.compare(this.end, other.end);
   }
 
-  @Override
-  public boolean equals(Object obj) {
-    if (obj.getClass() != BasicFeature.class) {
-      return false;
-    }
-    return this.compareTo((BasicFeature) obj) == 0;
-  }
-
   public List<String> toBedLines(boolean includeExons, boolean includeIntrons) {
     if (!this.isGene()) {
       throw new RuntimeException("I'm not a gene and I don't want to be turned into bed lines!");
     }
     List<BasicFeature> children = new ArrayList<>();
     if (includeExons) {
-      children.addAll(this.descendantExons.stream().distinct().collect(Collectors.toList()));
+      children.addAll(this.descendantExons.stream().filter(distinctByLocation()).collect(Collectors.toList()));
     }
     if (includeIntrons) {
-      children.addAll(this.descendantIntrons.stream().distinct().collect(Collectors.toList()));
+      children.addAll(this.descendantIntrons.stream().filter(distinctByLocation()).distinct().collect(Collectors.toList()));
     }
 
-    children.sort(BasicFeature::compareTo);
+    children.sort(BasicFeature::compareLocation);
     List<String> lines =  new ArrayList<>();
     for (int i = 0; i < children.size(); i++) {
       BasicFeature child = children.get(i);
@@ -276,5 +267,10 @@ public class BasicFeature implements Comparable<BasicFeature> {
                             name));
     }
     return lines;
+  }
+
+  public static Predicate<BasicFeature> distinctByLocation() {
+    Set<Object> seen = ConcurrentHashMap.newKeySet();
+    return t -> seen.add(t.getPositionAsString());
   }
 }
