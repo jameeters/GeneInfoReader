@@ -262,9 +262,15 @@ public class BasicFeature implements Comparable<BasicFeature> {
     List<String> lines =  new ArrayList<>();
     for (int i = 0; i < children.size(); i++) {
       BasicFeature child = children.get(i);
+
       String name = String.join("_", this.name, child.type.substring(0,1), String.valueOf(i));
+
+      String chrstr = String.valueOf(child.getChr());
+      if (child.getChr() == 23) chrstr = "X";
+      if (child.getChr() == 24) chrstr = "Y";
+
       lines.add(String.join("\t",
-                            "chr" + child.getChr(),
+                            "chr" + chrstr,
                             String.valueOf(child.start),
                             String.valueOf(child.end),
                             name));
