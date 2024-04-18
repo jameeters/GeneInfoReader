@@ -11,6 +11,7 @@ public class Main {
     boolean qc = true;
     boolean bedExons = false;
     boolean bedIntrons = false;
+    boolean bedAll = false;
     if (args.length >= 2) {
       for(String a : args) {
         if (a.equals("-noqc")) {
@@ -21,6 +22,8 @@ public class Main {
           bedIntrons = true;
         } else if (a.startsWith("-out=")) {
           outputDir = Path.of(a.replace("-out=", ""));
+        } else if (a.equals("-bedAll")) {
+          bedAll = true;
         }
       }
     }
@@ -33,7 +36,11 @@ public class Main {
     }
     aggregator.computeXRefMap();
 
-    if (bedExons || bedIntrons) {
+    if (bedAll) {
+      aggregator.writeBedFile(false, true);
+      aggregator.writeBedFile(true, false);
+      aggregator.writeBedFile(true, true);
+    } else if (bedExons || bedIntrons) {
       aggregator.writeBedFile(bedExons, bedIntrons);
     } else {
       aggregator.writeSerializedGeneTrack();
