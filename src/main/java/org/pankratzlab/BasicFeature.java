@@ -63,6 +63,19 @@ public class BasicFeature implements Comparable<BasicFeature> {
   private int[][] descendantExonBoundaries;
   private GeneData geneData;
 
+  private BasicFeature(String id, String type, int start, int end, String name, String contig,
+                       byte strand, String xRefGeneId) {
+    this.type = type;
+    this.id = id;
+    this.start = start;
+    this.end = end;
+    this.name = name;
+    this.contig = contig;
+    this.onMainContig = contigToChrMapping.containsKey(this.contig);
+    this.strand = strand;
+    this.xRefGeneId = xRefGeneId;
+  }
+
   public BasicFeature(Gff3BaseData baseData) {
     this.type = baseData.getType();
     this.id = baseData.getId();
@@ -127,6 +140,9 @@ public class BasicFeature implements Comparable<BasicFeature> {
     if (this.intronsFound) {
       return this.descendantIntrons;
     }
+    if (!this.exonsFound) {
+      this.getDescendantExons();
+    }
     Set<BasicFeature> introns = new HashSet<>();
     for (BasicFeature child : this.children) {
       introns.addAll(child.getDescendantIntrons());
@@ -136,8 +152,29 @@ public class BasicFeature implements Comparable<BasicFeature> {
       System.out.println("hey this intron has descendant introns, isn't that weird?!");
     }
 
-    if (this.isIntron()) {
-      introns.add(this);
+    List<BasicFeature> orderedExons = this.descendantExons.stream().sorted()
+        .collect(Collectors.toList());
+
+    // Introns are everything in the gene that's not an exon
+    // start by looking between the start of the gene and start of the first exon
+    int prevEnd = this.start;
+    for (BasicFeature exon : orderedExons) {
+      if (exon.start > prevEnd) {
+        // new thing
+        String id = this.id + "_intron_" + start + "_" + end;
+        // we've already made sure that prevEnd is outside an exon
+        int intronStart = prevEnd;
+        // the intron and exon don't share a base pair
+        int intronEnd = exon.start - 1;
+        BasicFeature intron = new BasicFeature(id, "intron", intronStart, intronEnd, id, this.contig, this.strand, this.xRefGeneId);
+        introns.add(intron);
+        prevEnd = exon.end + 1;
+      }
+    }
+    if (this.end > prevEnd) {
+      // one more intron between the last exon and the end of the gene
+      BasicFeature intron = new BasicFeature(id, "intron", prevEnd, this.end, id, this.contig, this.strand, this.xRefGeneId);
+      introns.add(intron);
     }
 
     this.descendantIntrons = introns;
@@ -209,15 +246,15 @@ public class BasicFeature implements Comparable<BasicFeature> {
     return this.compareTo((BasicFeature) obj) == 0;
   }
 
-  public List<String> toBedLines() {
+  public List<String> toBedLines(boolean includeExons, boolean includeIntrons) {
     if (!this.isGene()) {
       throw new RuntimeException("I'm not a gene and I don't want to be turned into bed lines!");
     }
     List<BasicFeature> children = new ArrayList<>();
-    if (exonsFound) {
+    if (includeExons) {
       children.addAll(this.descendantExons.stream().distinct().collect(Collectors.toList()));
     }
-    if (intronsFound) {
+    if (includeIntrons) {
       children.addAll(this.descendantIntrons.stream().distinct().collect(Collectors.toList()));
     }
 
@@ -227,7 +264,7 @@ public class BasicFeature implements Comparable<BasicFeature> {
       BasicFeature child = children.get(i);
       String name = String.join("_", this.name, child.type.substring(0,1), String.valueOf(i));
       lines.add(String.join("\t",
-                            String.valueOf(child.getChr()),
+                            "chr" + child.getChr(),
                             String.valueOf(child.start),
                             String.valueOf(child.end),
                             name));

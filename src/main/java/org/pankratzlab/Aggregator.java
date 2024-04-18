@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -123,15 +124,18 @@ public class Aggregator {
     geneTrack.serialize(geneTrackFile.toString());
   }
 
-  public void writeBedFile() {
-    Path bedFile = outputDir.resolve("exons_introns.bed");
+  public void writeBedFile(boolean includeExons, boolean includeIntrons) {
+    StringJoiner filename = new StringJoiner("_");
+    if (includeExons) filename.add("exons");
+    if (includeIntrons) filename.add("introns");
+    Path bedFile = outputDir.resolve(filename + ".bed");
     PrintWriter writer = org.pankratzlab.common.Files.getAppropriateWriter(bedFile.toString());
     geneGroupingsByXRefGeneId.values().stream().sorted(GeneGrouping::compareTo)
-        .forEach((GeneGrouping geneGrouping) -> {
+        .forEachOrdered((GeneGrouping geneGrouping) -> {
           try {
             BasicFeature mainContigGene = geneGrouping.getMainContigGenes().stream().findFirst()
                 .get();
-            mainContigGene.toBedLines().forEach(writer::println);
+            mainContigGene.toBedLines(includeExons, includeIntrons).forEach(writer::println);
           } catch (NoSuchElementException e) {
             System.out.println("No main contig gene found for group " + geneGrouping.geneId);
           }

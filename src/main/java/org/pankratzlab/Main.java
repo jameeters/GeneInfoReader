@@ -3,6 +3,7 @@ package org.pankratzlab;
 import java.io.IOException;
 import java.nio.file.Path;
 
+// https://ftp.ncbi.nlm.nih.gov//genomes/all/annotation_releases/9606/109.20210514/GCF_000001405.39_GRCh38.p13/GCF_000001405.39_GRCh38.p13_genomic.gff.gz
 public class Main {
   public static void main(String[] args) {
     Path gffFile = Path.of(args[0]);
@@ -33,7 +34,7 @@ public class Main {
     aggregator.computeXRefMap();
 
     if (bedExons || bedIntrons) {
-      aggregator.writeBedFile();
+      aggregator.writeBedFile(bedExons, bedIntrons);
     } else {
       aggregator.writeSerializedGeneTrack();
     }
