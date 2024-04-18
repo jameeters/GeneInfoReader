@@ -140,6 +140,7 @@ public class Aggregator {
             System.out.println("No main contig gene found for group " + geneGrouping.geneId);
           }
         });
+    writer.close();
   }
 
   void writeQcOutput() throws IOException {
