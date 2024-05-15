@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -11,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.pankratzlab.common.filesys.GeneData;
 import org.pankratzlab.common.filesys.GeneSet;
@@ -22,6 +25,9 @@ import htsjdk.tribble.gff.Gff3Feature;
 public class Aggregator {
   final GffParser parser;
 
+  // if no working directory is provided, write all output to /tmp
+  private Path dir = Paths.get("/tmp/");
+
   final Map<String, BasicFeature> featureMap = new HashMap<>();
   final Set<BasicFeature> genes = new HashSet<>();
   final Set<String> duplicateIds = new HashSet<>();
@@ -32,6 +38,11 @@ public class Aggregator {
   public Aggregator(String gffFilename) {
     this.parser = new GffParser(gffFilename, this::add);
     System.out.println("Finished loading " + featureMap.size() + " features");
+  }
+
+  public Aggregator(Path dir, Path gffFile) {
+    this(gffFile.toString());
+    this.dir = dir;
   }
 
   private void add(BasicFeature feat, Gff3BaseData baseData) {
@@ -85,8 +96,10 @@ public class Aggregator {
   }
 
   public void writeSerializedGeneTrack() {
-    String geneSetFile = "/tmp/geneset.ser";
-    String geneTrackFile = "/tmp/GeneTrack.ser";
+    String geneSetFileName = "geneset.ser";
+    String geneSetFile = dir.resolve(geneSetFileName).toString();
+    String geneTrackFileName = "GeneTrack.ser";
+    String geneTrackFile = dir.resolve(geneTrackFileName).toString();
 
     System.out.println("Creating GeneTrack...");
     List<GeneData> geneDatas = geneGroupingsByXRefGeneId.values().stream()
@@ -102,19 +115,48 @@ public class Aggregator {
     geneTrack.serialize(geneTrackFile);
   }
 
+  public void writeGenesXlnFile() throws IOException {
+    System.out.println("Writing genes.xln file...");
+    // todo: GeneID reference_name reference_chr reference_start reference_stop
+    // ------xref----name
+
+    String genesXlnFileName = "genes38.xln";
+    File genesXlnFile = dir.resolve(genesXlnFileName).toFile();
+
+    if (genesXlnFile.isFile()) {
+      System.out.println("File " + genesXlnFile
+                         + " already exists. It will be deleted and recreated.");
+      boolean deleteSuccess = genesXlnFile.delete();
+      if (!deleteSuccess) {
+        throw new IllegalStateException("Delete was unsuccessful, cannot continue");
+      }
+    }
+
+    String header = String.join("\t", "id", "name", "chr", "start", "stop");
+
+    try (FileWriter writer = new FileWriter(genesXlnFile)) {
+      writer.write(header + "\n");
+      for (BasicFeature gene : genes) {
+        writer.write(gene.toGenesXlnLine() + "\n");
+      }
+    }
+
+  }
+
   void writeQcOutput() throws IOException {
     System.out.println("Writing QC files...");
-    String genesAndExonsFile = "/tmp/geneinfo";
-    String chrGeneCountsFile = "/tmp/chrGeneCounts.tsv";
-    String seqIdCountsFile = "/tmp/seqIdCounts.tsv";
-    String duplicateIdsFile = "/tmp/duplicateIds.tsv";
-    String genesContigsFile = "/tmp/genesContigs.tsv";
-    String geneIdMappingFile = "/tmp/geneIdMapping.tsv";
-    String geneGroupingsFile = "/tmp/geneGroupings.tsv";
+    File genesAndExonsFile = dir.resolve("geneinfo").toAbsolutePath().toFile();
+    File chrGeneCountsFile = dir.resolve("chrGeneCounts.tsv").toAbsolutePath().toFile();
+    File seqIdCountsFile = dir.resolve("seqIdCounts.tsv").toAbsolutePath().toFile();
+    File duplicateIdsFile = dir.resolve("duplicateIds.tsv").toAbsolutePath().toFile();
+    File genesContigsFile = dir.resolve("genesContigs.tsv").toAbsolutePath().toFile();
+    File geneIdMappingFile = dir.resolve("geneIdMapping.tsv").toAbsolutePath().toFile();
+    File geneGroupingsFile = dir.resolve("geneGroupings.tsv").toAbsolutePath().toFile();
 
-    List<String> fileNames = List.of(genesAndExonsFile, chrGeneCountsFile, seqIdCountsFile,
-                                     duplicateIdsFile, genesContigsFile, geneIdMappingFile,
-                                     geneGroupingsFile);
+    List<String> fileNames = Stream.of(genesAndExonsFile, chrGeneCountsFile, seqIdCountsFile,
+                                       duplicateIdsFile, genesContigsFile, geneIdMappingFile,
+                                       geneGroupingsFile)
+                                   .map(File::toString).collect(Collectors.toList());
 
     for (String fileName : fileNames) {
       File f = new File(fileName);

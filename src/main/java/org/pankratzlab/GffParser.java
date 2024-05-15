@@ -14,7 +14,7 @@ public class GffParser {
   public GffParser(String filename, Consumer<Gff3Feature> featureConsumer) {
     File inputFile = new File(filename);
     if (!inputFile.exists()) {
-      throw new IllegalArgumentException("Input file does not exist");
+      throw new IllegalArgumentException("Input file does not exist: " + filename);
     }
 
     Gff3Codec gff3Codec = new Gff3Codec(Gff3Codec.DecodeDepth.SHALLOW);
