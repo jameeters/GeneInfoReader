@@ -6,6 +6,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+import org.pankratzlab.common.filesys.GeneData;
+
+import htsjdk.tribble.gff.Gff3BaseData;
+import htsjdk.tribble.gff.Gff3Feature;
 
 import org.pankratzlab.common.filesys.GeneData;
 
@@ -49,6 +57,9 @@ public class BasicFeature {
   boolean exonsFound = false;
   Set<BasicFeature> descendantExons = new HashSet<>();
 
+  boolean intronsFound = false;
+  Set<BasicFeature> descendantIntrons = new HashSet<>();
+
   final int start, end;
   final String name;
   final String contig;
@@ -59,6 +70,19 @@ public class BasicFeature {
 
   private int[][] descendantExonBoundaries;
   private GeneData geneData;
+
+  private BasicFeature(String id, String type, int start, int end, String name, String contig,
+                       byte strand, String xRefGeneId) {
+    this.type = type;
+    this.id = id;
+    this.start = start;
+    this.end = end;
+    this.name = name;
+    this.contig = contig;
+    this.onMainContig = contigToChrMapping.containsKey(this.contig);
+    this.strand = strand;
+    this.xRefGeneId = xRefGeneId;
+  }
 
   public BasicFeature(Gff3BaseData baseData) {
     this.type = baseData.getType();
@@ -120,12 +144,55 @@ public class BasicFeature {
     return exons;
   }
 
+  public Set<BasicFeature> getDescendantIntrons() {
+    if (this.intronsFound) {
+      return this.descendantIntrons;
+    }
+    if (!this.exonsFound) {
+      this.getDescendantExons();
+    }
+    Set<BasicFeature> introns = new HashSet<>();
+
+    List<BasicFeature> orderedExons = this.descendantExons.stream().filter(distinctByLocation()).sorted(BasicFeature::compareLocation)
+        .collect(Collectors.toList());
+
+    // Introns are everything in the gene that's not an exon
+    // start by looking between the start of the gene and start of the first exon
+    int prevEnd = this.start;
+    for (BasicFeature exon : orderedExons) {
+      if (exon.start > prevEnd) {
+        // new thing
+        String id = this.id + "_intron_" + start + "_" + end;
+        // we've already made sure that prevEnd is outside an exon
+        int intronStart = prevEnd;
+        // the intron and exon don't share a base pair
+        int intronEnd = exon.start - 1;
+        BasicFeature intron = new BasicFeature(id, "intron", intronStart, intronEnd, id, this.contig, this.strand, this.xRefGeneId);
+        introns.add(intron);
+      }
+      prevEnd = exon.end + 1;
+    }
+    if (this.end > prevEnd) {
+      // one more intron between the last exon and the end of the gene
+      BasicFeature intron = new BasicFeature(id, "intron", prevEnd, this.end, id, this.contig, this.strand, this.xRefGeneId);
+      introns.add(intron);
+    }
+
+    this.descendantIntrons = introns;
+    this.intronsFound = true;
+    return introns;
+  }
+
   public byte getChr() {
     return contigToChrMapping.getOrDefault(this.contig, 0).byteValue();
   }
 
   public int[] getBoundariesAsArray() {
     return new int[] {start, end};
+  }
+
+  public String getPositionAsString() {
+    return String.join("_", String.valueOf(getChr()), String.valueOf(start), String.valueOf(end));
   }
 
   public int[][] getDescendantExonBoundariesAsArray() {
@@ -172,4 +239,57 @@ public class BasicFeature {
     return this.type.equals("exon");
   }
 
+  public boolean isIntron() {
+    return this.type.equals("intron");
+  }
+
+  public int compareLocation (BasicFeature other) {
+    if (other.getChr() != this.getChr()) {
+      return Integer.compare(this.getChr(), other.getChr());
+    }
+    if (other.start != this.start) {
+      return Integer.compare(this.start, other.start);
+    }
+    return Integer.compare(this.end, other.end);
+  }
+
+  public List<String> toBedLines(boolean includeExons, boolean includeIntrons) {
+    if (!this.isGene()) {
+      throw new RuntimeException("I'm not a gene and I don't want to be turned into bed lines!");
+    }
+    if (getChr() == 26) {
+      return List.of();
+    }
+    List<BasicFeature> children = new ArrayList<>();
+    if (includeExons) {
+      children.addAll(this.descendantExons.stream().filter(distinctByLocation()).collect(Collectors.toList()));
+    }
+    if (includeIntrons) {
+      children.addAll(this.descendantIntrons.stream().filter(distinctByLocation()).distinct().collect(Collectors.toList()));
+    }
+
+    children.sort(BasicFeature::compareLocation);
+    List<String> lines =  new ArrayList<>();
+    for (int i = 0; i < children.size(); i++) {
+      BasicFeature child = children.get(i);
+
+      String name = String.join("_", this.name, child.type.substring(0,1), String.valueOf(i));
+
+      String chrstr = String.valueOf(child.getChr());
+      if (child.getChr() == 23) chrstr = "X";
+      if (child.getChr() == 24) chrstr = "Y";
+
+      lines.add(String.join("\t",
+                            "chr" + chrstr,
+                            String.valueOf(child.start),
+                            String.valueOf(child.end),
+                            name));
+    }
+    return lines;
+  }
+
+  public static Predicate<BasicFeature> distinctByLocation() {
+    Set<Object> seen = ConcurrentHashMap.newKeySet();
+    return t -> seen.add(t.getPositionAsString());
+  }
 }
